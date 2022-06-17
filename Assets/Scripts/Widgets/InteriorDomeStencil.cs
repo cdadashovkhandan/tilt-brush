@@ -17,7 +17,7 @@ using UnityEngine;
 
 namespace TiltBrush
 {
-    public class SphereStencil : StencilWidget
+    public class InteriorDomeStencil : StencilWidget
     {
         public override Vector3 Extents
         {
@@ -33,7 +33,7 @@ namespace TiltBrush
                 }
                 else
                 {
-                    throw new ArgumentException("SphereStencil does not support non-uniform extents");
+                    throw new ArgumentException("PolyStencil does not support non-uniform extents");
                 }
             }
         }
@@ -41,16 +41,17 @@ namespace TiltBrush
         protected override void Awake()
         {
             base.Awake();
-            m_Type = StencilType.Sphere;
+            m_Type = StencilType.InteriorDome;
         }
 
-        public override void FindClosestPointOnSurface(Vector3 pos,
-            out Vector3 surfacePos, out Vector3 surfaceNorm)
+        public override void FindClosestPointOnSurface(Vector3 pos, out Vector3 surfacePos, out Vector3 surfaceNorm)
         {
             Vector3 vCenterToPos = pos - transform.position;
-            float fRadius = Mathf.Abs(GetSignedWidgetSize()) * 0.5f * Coords.CanvasPose.scale;
-            surfacePos = transform.position + vCenterToPos.normalized * fRadius;
-            surfaceNorm = vCenterToPos;
+            //Vector3 localPos = transform.InverseTransformPoint(pos);
+            var collider = GetComponentInChildren<MeshCollider>();
+            surfacePos = collider.ClosestPoint(pos);
+            //surfaceNorm = -Vector3.forward;
+            surfaceNorm = vCenterToPos.normalized;
         }
 
         override public float GetActivationScore(
@@ -100,16 +101,16 @@ namespace TiltBrush
         {
             if (m_Collider != null)
             {
-                SphereCollider sphere = m_Collider as SphereCollider;
+                MeshCollider collider = m_Collider as MeshCollider;
                 TrTransform colliderToCanvasXf = App.Scene.SelectionCanvas.Pose.inverse *
                     TrTransform.FromTransform(m_Collider.transform);
-                Bounds bounds = new Bounds(colliderToCanvasXf * sphere.center, Vector3.zero);
+                Bounds bounds = new Bounds(colliderToCanvasXf * collider.bounds.center, Vector3.zero);
 
-                // Spheres are invariant with rotation, so take out the rotation from the transform and just
+                // Polys are invariant with rotation, so take out the rotation from the transform and just
                 // add the two opposing corners.
                 colliderToCanvasXf.rotation = Quaternion.identity;
-                bounds.Encapsulate(colliderToCanvasXf * (sphere.center + sphere.radius * Vector3.one));
-                bounds.Encapsulate(colliderToCanvasXf * (sphere.center - sphere.radius * Vector3.one));
+                bounds.Encapsulate(colliderToCanvasXf * (collider.bounds.center + collider.bounds.extents));
+                bounds.Encapsulate(colliderToCanvasXf * (collider.bounds.center - collider.bounds.extents));
 
                 return bounds;
             }

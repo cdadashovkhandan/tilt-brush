@@ -31,7 +31,10 @@ public enum StencilType {
   Cylinder,
   InteriorDome,
   Pyramid,
-  Ellipsoid
+  Ellipsoid,
+  Octahedron,
+  Triangle,
+  Disk
 }
 
 [Serializable]
