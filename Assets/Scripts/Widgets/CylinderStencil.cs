@@ -50,35 +50,30 @@ namespace TiltBrush
             m_Type = StencilType.Cylinder;
         }
 
+        // This is the key method that allows the pointer to snap on the shape's surface
+        // Note the collider is of type MeshCollider and it needs to be retreived
+        // Without this, the pointer does not snap on the shape
         public override void FindClosestPointOnSurface(Vector3 pos, out Vector3 surfacePos, out Vector3 surfaceNorm)
         {
             Vector3 vCenterToPos = pos - transform.position;
             var collider = GetComponentInChildren<MeshCollider>();
-            surfacePos = collider.ClosestPoint(pos); 
+            surfacePos = collider.ClosestPoint(pos);
             surfaceNorm = pos - surfacePos;
-
-
-            // var collider = GetComponentInChildren<MeshCollider>();
-            // surfacePos = collider.ClosestPoint(pos);
-            // surfaceNorm = Vector3.zero;
-            // Vector3 vCenterToPos = pos - transform.position;
-            // RaycastHit hit;
-            // if (Physics.Raycast(pos, surfacePos - pos, out hit))
-            // {
-            //     surfaceNorm = hit.normal;
-            // }
         }
 
+        // This method activates the shape, allowing it to actually be picked up and scaled
+        // Without it, the shape remains frozen
         override public float GetActivationScore(
             Vector3 vControllerPos, InputManager.ControllerName name)
         {
             float fRadius = Mathf.Abs(GetSignedWidgetSize()) * 0.5f * Coords.CanvasPose.scale;
             float baseScore = (1.0f - (transform.position - vControllerPos).magnitude / fRadius);
-            // don't try to scale if invalid; scaling by zero will make it look valid
             if (baseScore < 0) { return baseScore; }
             return baseScore * Mathf.Pow(1 - m_Size / m_MaxSize_CS, 2);
         }
 
+        // This method checks the available transformation on the axis. In this case, the shape can be scaled uniformly or on the y-axis
+        // Without it, it will be impossible to scale the shape
         protected override Axis GetInferredManipulationAxis(
             Vector3 primaryHand, Vector3 secondaryHand, bool secondaryHandInside)
         {
@@ -119,6 +114,8 @@ namespace TiltBrush
             }
         }
 
+        // This registers and highlights the shape's components (depending on the axis on which the shape will be scaled) in case the shape is composed by more meshes but it is not the case here
+        // However, this method cannot be null, the axis must be registered, and since the behavior is the same for all axis, all axis are registered and the whole shape is highlighted
         protected override void RegisterHighlightForSpecificAxis(Axis highlightAxis)
         {
             if (m_HighlightMeshFilters != null)
@@ -131,21 +128,19 @@ namespace TiltBrush
         }
 
         // Using the locked axis, get the scaled direction of the axis
+        // If the shape can be, for example, scaled on the y-axis, this is where the transofrmation happens
+        // However, it has to be in accordance to the above method "GetInferredManipulationAxis"
         public override Axis GetScaleAxis(Vector3 handA, Vector3 handB,
             out Vector3 axisVec, out float extent)
         {
-            // Unexpected -- normally we're only called during a 2-handed manipulation
             Debug.Assert(m_LockedManipulationAxis != null);
             Axis axis = m_LockedManipulationAxis ?? Axis.Invalid;
 
             float parentScale = TrTransform.FromTransform(transform.parent).scale;
 
-            // Fill in axisVec, extent
             switch (axis)
             {
-                //case Axis.X:
                 case Axis.Y:
-                    //case Axis.Z:
                     Vector3 axisVec_LS = Vector3.zero;
                     axisVec_LS[(int)axis] = 1;
                     axisVec = transform.TransformDirection(axisVec_LS);
@@ -162,23 +157,7 @@ namespace TiltBrush
             return axis;
         }
 
-        public override Bounds GetBounds_SelectionCanvasSpace()
-        {
-            if (m_Collider != null)
-            {
-                MeshCollider collider = m_Collider as MeshCollider;
-                TrTransform colliderToCanvasXf = App.Scene.SelectionCanvas.Pose.inverse * TrTransform.FromTransform(m_Collider.transform);
-                Bounds bounds = new Bounds(colliderToCanvasXf * collider.bounds.center, Vector3.zero);
-
-                colliderToCanvasXf.rotation = Quaternion.identity;
-                bounds.Encapsulate(colliderToCanvasXf * (collider.bounds.center + collider.bounds.extents));
-                bounds.Encapsulate(colliderToCanvasXf * (collider.bounds.center - collider.bounds.extents));
-
-                return bounds;
-            }
-            return base.GetBounds_SelectionCanvasSpace();
-        }
-
+        // This method simply updates the scale and makes the change visible
         protected override void UpdateScale()
         {
             float maxAspect = m_AspectRatio.Max();
